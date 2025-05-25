@@ -1,16 +1,18 @@
 let segments = [];
 let showInstructions = true;
 
-let resetButton, downloadButton, helpButton;
+let closeButton, resetButton, downloadButton, helpButton;
 
 const instructions = [
-  "Click a segment to split it horizontally/vertically",
-  "Segments alternate black/white gradients with random opacity",
-  "Each split creates new random opacities (50-100%)",
-  "Segments scroll at unique speeds",
-  "Use Reset to start over",
-  "Use Download to save your image",
-  "Use ? to toggle instructions"
+  "Click a segment to split it horizontally or vertically (whichever is closer).",
+  "Segments alternate black/white gradients with random opacity.",
+  "Each split creates new random opacities (50-100%).",
+  "Segments scroll at unique speeds and wrap seamlessly.",
+  "No overlaps, no strokes.",
+  "Use Reset to start over.",
+  "Use Download to save your image.",
+  "Use ? to toggle instructions.",
+  "Use X to visit modelcollapse.github.io."
 ];
 
 function setup() {
@@ -33,7 +35,7 @@ function draw() {
       let x = seg.left + seg.xOffset + k * width;
       drawGradientRect(x, seg.top, w, h, seg.useWhite, seg.opacity);
     }
-    
+
     // Keep offset within bounds
     if (seg.xOffset > width) seg.xOffset -= width;
     if (seg.xOffset < -width) seg.xOffset += width;
@@ -51,16 +53,17 @@ function draw() {
   }
 }
 
+// Draws a horizontal gradient rectangle with opacity
 function drawGradientRect(x, y, w, h, whiteToBlack, opacity) {
   let ctx = drawingContext;
   let grad = ctx.createLinearGradient(x, y, x + w, y);
-  
+
   if (whiteToBlack) {
-    grad.addColorStop(0, `rgba(255, 255, 255, ${opacity})`);
-    grad.addColorStop(1, `rgba(0, 0, 0, ${opacity})`);
+    grad.addColorStop(0, `rgba(255,255,255,${opacity})`);
+    grad.addColorStop(1, `rgba(0,0,0,${opacity})`);
   } else {
-    grad.addColorStop(0, `rgba(0, 0, 0, ${opacity})`);
-    grad.addColorStop(1, `rgba(255, 255, 255, ${opacity})`);
+    grad.addColorStop(0, `rgba(0,0,0,${opacity})`);
+    grad.addColorStop(1, `rgba(255,255,255,${opacity})`);
   }
 
   ctx.save();
@@ -79,12 +82,14 @@ function mousePressed() {
   for (let i = 0; i < segments.length; i++) {
     let seg = segments[i];
     let found = false;
-    
+
     // Check all wrapped positions
     for (let k = -1; k <= 1; k++) {
       let x = seg.left + seg.xOffset + k * width;
-      if (mouseX >= x && mouseX <= x + (seg.right - seg.left) &&
-          mouseY >= seg.top && mouseY <= seg.bottom) {
+      if (
+        mouseX >= x && mouseX <= x + (seg.right - seg.left) &&
+        mouseY >= seg.top && mouseY <= seg.bottom
+      ) {
         found = true;
         break;
       }
@@ -94,20 +99,26 @@ function mousePressed() {
       // Generate new properties
       let newOpacity = random(0.5, 1);
       let newSpeed = random(-2.5, 2.5);
-      let splitVertical = random() < 0.5;
+      let nextUseWhite = !seg.useWhite;
 
-      // Actual split logic
-      if (splitVertical) {
+      // Decide split direction based on proximity to center
+      let segWidth = seg.right - seg.left;
+      let segHeight = seg.bottom - seg.top;
+      let distToCenterX = abs(mouseX - (seg.left + segWidth / 2));
+      let distToCenterY = abs(mouseY - (seg.top + segHeight / 2));
+      if (distToCenterX < distToCenterY) {
+        // Split vertically
         let splitX = constrain(mouseX - seg.xOffset, seg.left + 1, seg.right - 1);
         segments.splice(i, 1,
-          { ...seg, right: splitX, opacity: newOpacity, speed: newSpeed, useWhite: !seg.useWhite },
-          { ...seg, left: splitX, opacity: newOpacity, speed: -newSpeed, useWhite: !seg.useWhite }
+          { top: seg.top, bottom: seg.bottom, left: seg.left, right: splitX, xOffset: seg.xOffset, speed: newSpeed, useWhite: nextUseWhite, opacity: newOpacity },
+          { top: seg.top, bottom: seg.bottom, left: splitX, right: seg.right, xOffset: seg.xOffset, speed: -newSpeed, useWhite: nextUseWhite, opacity: newOpacity }
         );
       } else {
+        // Split horizontally
         let splitY = constrain(mouseY, seg.top + 1, seg.bottom - 1);
         segments.splice(i, 1,
-          { ...seg, bottom: splitY, opacity: newOpacity, speed: newSpeed, useWhite: !seg.useWhite },
-          { ...seg, top: splitY, opacity: newOpacity, speed: -newSpeed, useWhite: !seg.useWhite }
+          { top: seg.top, bottom: splitY, left: seg.left, right: seg.right, xOffset: seg.xOffset, speed: newSpeed, useWhite: nextUseWhite, opacity: newOpacity },
+          { top: splitY, bottom: seg.bottom, left: seg.left, right: seg.right, xOffset: seg.xOffset, speed: -newSpeed, useWhite: nextUseWhite, opacity: newOpacity }
         );
       }
       break;
@@ -115,28 +126,32 @@ function mousePressed() {
   }
 }
 
-// UI and helper functions remain same as previous version
-// (setupButtons, resetSegments, windowResized, styleButton)
-
 function setupButtons() {
+  closeButton = createButton('X');
+  styleButton(closeButton, 10, 5, 'red');
+  closeButton.mousePressed(() => {
+    window.open('https://modelcollapse.github.io/', '_blank');
+  });
+
   resetButton = createButton('Reset');
-  styleButton(resetButton, 10, 5, '#333');
+  styleButton(resetButton, 50, 5, '#333');
   resetButton.mousePressed(() => resetSegments());
 
   downloadButton = createButton('Download');
-  styleButton(downloadButton, 100, 5, '#333');
+  styleButton(downloadButton, 140, 5, '#333');
   downloadButton.mousePressed(() => saveCanvas('gradient-art', 'png'));
 
   helpButton = createButton('?');
-  styleButton(helpButton, 220, 5, '#444');
+  styleButton(helpButton, 260, 5, '#444');
+  helpButton.style('font-weight', 'bold');
   helpButton.mousePressed(() => showInstructions = !showInstructions);
 }
 
 function resetSegments() {
   segments = [{
-    top: 0, 
-    bottom: height, 
-    left: 0, 
+    top: 0,
+    bottom: height,
+    left: 0,
     right: width,
     xOffset: 0,
     speed: random(-1.5, 1.5),
@@ -147,9 +162,10 @@ function resetSegments() {
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-  resetButton.position(10, 5);
-  downloadButton.position(100, 5);
-  helpButton.position(220, 5);
+  closeButton.position(10, 5);
+  resetButton.position(50, 5);
+  downloadButton.position(140, 5);
+  helpButton.position(260, 5);
   resetSegments();
 }
 
